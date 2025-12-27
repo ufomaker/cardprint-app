@@ -1,0 +1,50 @@
+name: cardflow
+description: "CardFlow 贺卡流 - AI 智能排版打印助手"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  # 网络请求
+  dio: ^5.4.0
+  # 打印功能
+  printing: ^5.12.0
+  pdf: ^3.10.8
+  # 状态管理
+  provider: ^6.1.1
+  # Google Fonts (包含思源黑体等)
+  google_fonts: ^6.1.0
+  # 文件选择器 (用于导入字体)
+  file_picker: ^8.1.4
+  # 路径管理
+  path_provider: ^2.1.2
+  # 本地存储 (用于保存用户设置)
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  
+  fonts:
+    - family: 千图小兔体
+      fonts:
+        - asset: assets/fonts/qiantuxianmoti.ttf
+    - family: 一叶知秋行楷
+      fonts:
+        - asset: assets/fonts/yiyezhiqiu.ttf
+    - family: 田英章硬笔楷书
+      fonts:
+        - asset: assets/fonts/tianyingzhang.ttf
+    - family: 迷你简启体
+      fonts:
+        - asset: assets/fonts/minijianqiti.ttf
