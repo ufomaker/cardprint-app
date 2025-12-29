@@ -1,9 +1,11 @@
 import 'dart:ui';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/card_provider.dart';
 import '../services/print_service.dart';
+import '../services/ohos_clipboard_service.dart';
 import '../theme/liquid_glass_theme.dart';
 import '../widgets/card_canvas.dart';
 import '../widgets/clipboard_dialog.dart';
@@ -48,19 +50,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _checkClipboard() async {
     try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      final text = data?.text;
+      String? text;
+      
+      // 鸿蒙平台使用原生剪贴板 API (将触发 PasteButton 对话框)
+      if (_isOhosPlatform()) {
+        text = await OhosClipboardService.getText();
+      } else {
+        final data = await Clipboard.getData(Clipboard.kTextPlain);
+        text = data?.text;
+      }
 
       if (text != null && 
           text.isNotEmpty && 
           text != _lastClipboardText) {
         setState(() {
-          _clipboardText = text;
+          _clipboardText = text!;
           _showClipboardDialog = true;
         });
       }
     } catch (e) {
       debugPrint('读取剪贴板失败: $e');
+    }
+  }
+
+  /// 检测是否为鸿蒙平台
+  bool _isOhosPlatform() {
+    try {
+      final os = Platform.operatingSystem.toLowerCase();
+      return os == 'ohos' || os == 'harmonyos' || os == 'openharmony';
+    } catch (e) {
+      return false;
     }
   }
 

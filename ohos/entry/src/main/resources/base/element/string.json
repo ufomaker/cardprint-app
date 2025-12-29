@@ -11,6 +11,10 @@
     {
       "name": "EntryAbility_label",
       "value": "cardflow"
+    },
+    {
+      "name": "pasteboard_permission_reason",
+      "value": "用于检测剪贴板中的贺卡文本内容，实现快速导入功能"
     }
   ]
 }
