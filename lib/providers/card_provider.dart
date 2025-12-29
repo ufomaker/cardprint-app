@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/card_content.dart';
 import '../services/deepseek_service.dart';
 import '../services/font_service.dart';
+import '../services/storage_service.dart';
 
 /// 卡片状态管理 Provider
 class CardProvider extends ChangeNotifier {
@@ -93,30 +93,55 @@ class CardProvider extends ChangeNotifier {
     
     // 加载上次保存的字体和字号设置
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
       // 加载字体
-      final savedFont = prefs.getString('selected_font');
+      final savedFont = await StorageService.getString('selected_font');
       if (savedFont != null && availableFonts.contains(savedFont)) {
         _fontFamily = savedFont;
       }
       
       // 加载字号
-      final savedFontSize = prefs.getDouble('selected_font_size');
+      final savedFontSize = await StorageService.getDouble('selected_font_size');
       if (savedFontSize != null) {
         _fontSize = savedFontSize.clamp(12, 48);
       }
       
       // 加载 AI 模式设置
-      final savedUseAI = prefs.getBool('use_ai_mode');
+      final savedUseAI = await StorageService.getBool('use_ai_mode');
       if (savedUseAI != null) {
         _useAI = savedUseAI;
       }
       
       // 加载对折贺卡模式设置
-      final savedFoldCard = prefs.getBool('fold_card_mode');
+      final savedFoldCard = await StorageService.getBool('fold_card_mode');
       if (savedFoldCard != null) {
         _isFoldCard = savedFoldCard;
+      }
+      
+      // 加载纸张尺寸设置
+      final savedIsCustomSize = await StorageService.getBool('paper_is_custom_size');
+      final savedPaperWidth = await StorageService.getDouble('paper_width');
+      final savedPaperHeight = await StorageService.getDouble('paper_height');
+      final savedCustomWidth = await StorageService.getDouble('paper_custom_width');
+      final savedCustomHeight = await StorageService.getDouble('paper_custom_height');
+      
+      // 调试日志
+      debugPrint('加载纸张设置: isCustom=$savedIsCustomSize, width=$savedPaperWidth, height=$savedPaperHeight, customW=$savedCustomWidth, customH=$savedCustomHeight');
+      
+      if (savedCustomWidth != null && savedCustomWidth > 0) {
+        _customWidth = savedCustomWidth;
+      }
+      if (savedCustomHeight != null && savedCustomHeight > 0) {
+        _customHeight = savedCustomHeight;
+      }
+      if (savedIsCustomSize != null) {
+        _isCustomSize = savedIsCustomSize;
+      }
+      if (savedPaperWidth != null && savedPaperHeight != null && savedPaperWidth > 0 && savedPaperHeight > 0) {
+        _paperSize = Size(savedPaperWidth, savedPaperHeight);
+        debugPrint('已加载纸张大小: $_paperSize');
+      } else if (_isCustomSize) {
+        _paperSize = Size(_customWidth, _customHeight);
+        debugPrint('使用自定义纸张大小: $_paperSize');
       }
     } catch (e) {
       debugPrint('加载设置失败: $e');
@@ -190,8 +215,7 @@ class CardProvider extends ChangeNotifier {
     
     // 保存用户选择
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('use_ai_mode', _useAI);
+      await StorageService.setBool('use_ai_mode', _useAI);
     } catch (e) {
       debugPrint('保存 AI 模式设置失败: $e');
     }
@@ -279,8 +303,7 @@ class CardProvider extends ChangeNotifier {
     
     // 保存用户选择
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('selected_font', fontFamily);
+      await StorageService.setString('selected_font', fontFamily);
     } catch (e) {
       debugPrint('保存字体设置失败: $e');
     }
@@ -293,8 +316,7 @@ class CardProvider extends ChangeNotifier {
     
     // 保存用户选择
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('selected_font_size', _fontSize);
+      await StorageService.setDouble('selected_font_size', _fontSize);
     } catch (e) {
       debugPrint('保存字号设置失败: $e');
     }
@@ -306,8 +328,8 @@ class CardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 设置纸张尺寸
-  void setPaperSize(Size size) {
+  /// 设置纸张尺寸（并保存用户选择）
+  void setPaperSize(Size size) async {
     if (size.width == -1) {
       _isCustomSize = true;
       _paperSize = Size(_customWidth, _customHeight);
@@ -318,26 +340,55 @@ class CardProvider extends ChangeNotifier {
       _customHeight = size.height;
     }
     notifyListeners();
+    
+    // 保存用户选择
+    try {
+      debugPrint('保存纸张设置: isCustom=$_isCustomSize, width=${_paperSize.width}, height=${_paperSize.height}, customW=$_customWidth, customH=$_customHeight');
+      final r1 = await StorageService.setBool('paper_is_custom_size', _isCustomSize);
+      final r2 = await StorageService.setDouble('paper_width', _paperSize.width);
+      final r3 = await StorageService.setDouble('paper_height', _paperSize.height);
+      final r4 = await StorageService.setDouble('paper_custom_width', _customWidth);
+      final r5 = await StorageService.setDouble('paper_custom_height', _customHeight);
+      debugPrint('保存结果: r1=$r1, r2=$r2, r3=$r3, r4=$r4, r5=$r5');
+    } catch (e) {
+      debugPrint('保存纸张尺寸设置失败: $e');
+    }
   }
 
-  /// 更新自定义宽度
-  void updateCustomWidth(double width) {
+  /// 更新自定义宽度（并保存用户选择）
+  void updateCustomWidth(double width) async {
     if (width <= 0) return;
     _customWidth = width;
     if (_isCustomSize) {
       _paperSize = Size(_customWidth, _customHeight);
     }
     notifyListeners();
+    
+    // 保存用户选择
+    try {
+      await StorageService.setDouble('paper_width', _paperSize.width);
+      await StorageService.setDouble('paper_custom_width', _customWidth);
+    } catch (e) {
+      debugPrint('保存自定义宽度失败: $e');
+    }
   }
 
-  /// 更新自定义高度
-  void updateCustomHeight(double height) {
+  /// 更新自定义高度（并保存用户选择）
+  void updateCustomHeight(double height) async {
     if (height <= 0) return;
     _customHeight = height;
     if (_isCustomSize) {
       _paperSize = Size(_customWidth, _customHeight);
     }
     notifyListeners();
+    
+    // 保存用户选择
+    try {
+      await StorageService.setDouble('paper_height', _paperSize.height);
+      await StorageService.setDouble('paper_custom_height', _customHeight);
+    } catch (e) {
+      debugPrint('保存自定义高度失败: $e');
+    }
   }
 
   /// 设置贺卡类型（单页/对折）（并保存用户选择）
@@ -347,8 +398,7 @@ class CardProvider extends ChangeNotifier {
     
     // 保存用户选择
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('fold_card_mode', _isFoldCard);
+      await StorageService.setBool('fold_card_mode', _isFoldCard);
     } catch (e) {
       debugPrint('保存对折贺卡模式设置失败: $e');
     }

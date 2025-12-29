@@ -233,7 +233,7 @@ class CardCanvas extends StatelessWidget {
                         color: LiquidGlassTheme.primaryColor.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.open_with, color: Colors.white, size: 14),

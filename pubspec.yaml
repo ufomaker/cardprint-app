@@ -4,33 +4,34 @@ publish_to: 'none'
 
 version: 1.0.0+1
 
+# 为 Flutter HarmonyOS SDK (Dart 2.19.6 / Flutter 3.7.12) 优化的依赖配置
 environment:
-  sdk: ^3.6.0
+  sdk: '>=2.18.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
-  # 网络请求
-  dio: ^5.4.0
-  # 打印功能
-  printing: ^5.12.0
-  pdf: ^3.10.8
+  cupertino_icons: ^1.0.5
+  # 网络请求 - 兼容 Dart 2.19
+  dio: ^5.0.0
+  # 打印功能 - 降低版本以兼容 Dart 2.19
+  printing: ^5.9.3
+  pdf: ^3.8.4
   # 状态管理
-  provider: ^6.1.1
-  # Google Fonts (包含思源黑体等)
-  google_fonts: ^6.1.0
-  # 文件选择器 (用于导入字体)
-  file_picker: ^8.1.4
+  provider: ^6.0.5
+  # Google Fonts - 降低版本
+  google_fonts: ^4.0.4
+  # 文件选择器 - 降低版本
+  file_picker: ^5.2.10
   # 路径管理
-  path_provider: ^2.1.2
+  path_provider: ^2.0.15
   # 本地存储 (用于保存用户设置)
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^2.0.1
 
 flutter:
   uses-material-design: true

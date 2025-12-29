@@ -132,7 +132,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // 使用高像素比截图以获得高分辨率打印质量
       final imageBytes = await PrintService.captureWidget(printCanvasKey);
       
-      // 生成 PDF
+      // 所有平台统一流程：生成 PDF 后打印
+      // PDF 会将卡片内容正确映射到 A4 纸的顶部居中位置
       final pdfBytes = await PrintService.generatePdf(
         content: provider.content,
         paperSizeMm: provider.paperSize,
@@ -142,11 +143,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         cardImage: imageBytes,
       );
 
-      // 调用打印
-      await PrintService.printPdf(
+      // 调用打印（鸿蒙和其他平台都使用 PDF）
+      final success = await PrintService.printPdf(
         pdfBytes,
         paperSizeMm: provider.paperSize,
       );
+      
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('打印失败，请重试')),
+        );
+      }
     } finally {
       // 移除临时overlay
       overlayEntry?.remove();
@@ -289,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     BoxShadow(color: LiquidGlassTheme.primaryColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
                   ],
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.auto_awesome, size: 10, color: Colors.white),
@@ -491,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.print_rounded, color: Colors.white, size: 20),
@@ -593,7 +600,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Row(
+              Row(
                 children: [
                   Icon(Icons.zoom_in_rounded, color: LiquidGlassTheme.textPrimary),
                   SizedBox(width: 12),

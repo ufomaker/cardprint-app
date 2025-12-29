@@ -222,7 +222,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
               
               // 完成按钮
               ElevatedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  // 如果是自定义尺寸，确保保存设置
+                  if (provider.isCustomSize) {
+                    // 触发一次 setPaperSize 来保存自定义尺寸
+                    provider.setPaperSize(const Size(-1, -1));
+                  }
+                  Navigator.pop(context);
+                },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

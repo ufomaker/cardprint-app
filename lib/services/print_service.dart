@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../models/card_content.dart';
+import 'ohos_print_service.dart';
 
 /// 打印服务
 /// 负责 PDF 生成和打印调用
@@ -167,6 +169,15 @@ class PrintService {
     String jobName = 'CardFlow 贺卡',
   }) async {
     try {
+      // 检测是否为鸿蒙平台
+      // 鸿蒙平台使用原生打印 API
+      if (isOhosPlatform()) {
+        debugPrint('使用鸿蒙原生打印 API');
+        // 使用纯英文文件名避免 URI 编码问题
+        return await OhosPrintService.printPdf(pdfBytes, fileName: 'cardflow_print.pdf');
+      }
+      
+      // Android/iOS 等平台使用 printing 插件
       // 由于Android系统无法正确接收自定义纸张尺寸
       // 统一使用标准A4格式，贺卡内容已在PDF生成时映射到A4纸上
       const a4Format = PdfPageFormat.a4;
@@ -179,6 +190,34 @@ class PrintService {
       return true;
     } catch (e) {
       debugPrint('打印失败: $e');
+      return false;
+    }
+  }
+  
+  /// 检测是否为鸿蒙平台
+  static bool isOhosPlatform() {
+    try {
+      // 鸿蒙平台的 Platform.operatingSystem 可能返回 'ohos' 或其他标识
+      // 也可以通过检测 printing 插件是否可用来判断
+      final os = Platform.operatingSystem.toLowerCase();
+      return os == 'ohos' || os == 'harmonyos' || os == 'openharmony';
+    } catch (e) {
+      // 如果 Platform 不可用（如 web 平台），返回 false
+      return false;
+    }
+  }
+  
+  /// 直接打印图片（用于鸿蒙平台）
+  static Future<bool> printImage(Uint8List imageBytes, {String? fileName}) async {
+    try {
+      if (isOhosPlatform()) {
+        return await OhosPrintService.printImage(imageBytes, fileName: fileName);
+      }
+      // 非鸿蒙平台，将图片嵌入 PDF 后打印
+      debugPrint('printImage 仅支持鸿蒙平台，其他平台请使用 printPdf');
+      return false;
+    } catch (e) {
+      debugPrint('打印图片失败: $e');
       return false;
     }
   }
