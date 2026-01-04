@@ -4,6 +4,7 @@ import { GeneratedPluginRegistrant } from '../plugins/GeneratedPluginRegistrant'
 import OhosPrintPlugin from '../plugins/OhosPrintPlugin';
 import OhosPreferencesPlugin from '../plugins/OhosPreferencesPlugin';
 import OhosClipboardPlugin from '../plugins/OhosClipboardPlugin';
+import OhosImagePickerPlugin from '../plugins/OhosImagePickerPlugin';
 
 export default class EntryAbility extends FlutterAbility {
   configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -14,6 +15,7 @@ export default class EntryAbility extends FlutterAbility {
     flutterEngine.getPlugins()?.add(new OhosPrintPlugin())
     flutterEngine.getPlugins()?.add(new OhosPreferencesPlugin())
     flutterEngine.getPlugins()?.add(new OhosClipboardPlugin())
-    console.info("EntryAbility", "Plugins registered manually")
+    flutterEngine.getPlugins()?.add(new OhosImagePickerPlugin())
+    console.info("EntryAbility", "Plugins registered manually (including ImagePicker)")
   }
 }

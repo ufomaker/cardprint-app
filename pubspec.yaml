@@ -27,6 +27,8 @@ dependencies:
   path_provider: ^2.0.15
   # 本地存储 (用于保存用户设置)
   shared_preferences: ^2.1.1
+  # 图片选择器
+  image_picker: ^0.8.9
 
 dev_dependencies:
   flutter_test:

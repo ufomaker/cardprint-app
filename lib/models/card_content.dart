@@ -28,6 +28,14 @@ class CardContent {
   double bodyRotation;
   double footerRotation;
 
+  /// 文字块的尺寸（为空则自适应）
+  double? headerWidth;
+  double? headerHeight;
+  double? bodyWidth;
+  double? bodyHeight;
+  double? footerWidth;
+  double? footerHeight;
+
   CardContent({
     this.header = '',
     this.body = '',
@@ -44,6 +52,12 @@ class CardContent {
     this.headerRotation = 0,
     this.bodyRotation = 0,
     this.footerRotation = 0,
+    this.headerWidth,
+    this.headerHeight,
+    this.bodyWidth,
+    this.bodyHeight,
+    this.footerWidth,
+    this.footerHeight,
   });
 
   /// 从原始文本解析（规则版）
@@ -97,6 +111,12 @@ class CardContent {
     double? headerRotation,
     double? bodyRotation,
     double? footerRotation,
+    double? headerWidth,
+    double? headerHeight,
+    double? bodyWidth,
+    double? bodyHeight,
+    double? footerWidth,
+    double? footerHeight,
   }) {
     return CardContent(
       header: header ?? this.header,
@@ -114,6 +134,12 @@ class CardContent {
       headerRotation: headerRotation ?? this.headerRotation,
       bodyRotation: bodyRotation ?? this.bodyRotation,
       footerRotation: footerRotation ?? this.footerRotation,
+      headerWidth: headerWidth ?? this.headerWidth,
+      headerHeight: headerHeight ?? this.headerHeight,
+      bodyWidth: bodyWidth ?? this.bodyWidth,
+      bodyHeight: bodyHeight ?? this.bodyHeight,
+      footerWidth: footerWidth ?? this.footerWidth,
+      footerHeight: footerHeight ?? this.footerHeight,
     );
   }
 

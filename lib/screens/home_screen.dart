@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/card_provider.dart';
 import '../services/print_service.dart';
+import '../services/image_picker_service.dart';
 import '../services/ohos_clipboard_service.dart';
 import '../theme/liquid_glass_theme.dart';
 import '../widgets/card_canvas.dart';
@@ -274,6 +275,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  // 从相册选择图片
+  Future<void> _pickImageFromGallery() async {
+    HapticFeedback.selectionClick();
+    final result = await ImagePickerService.pickFromGallery();
+    if (result != null && mounted) {
+      final provider = context.read<CardProvider>();
+      provider.addImage(result.bytes, result.width, result.height);
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('图片已添加，可拖拽调整位置'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<CardProvider>();
@@ -375,9 +394,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             children: [
               Column(
                 children: [
-                   // 卡片预览区
+                  // 卡片预览区
                   Expanded(
-                    child: CardCanvas(captureKey: _canvasKey),
+                    child: CardCanvas(
+                      captureKey: _canvasKey,
+                      onEdit: _showInputDialog,
+                    ),
                   ),
 
                   // 底部工具栏
@@ -452,7 +474,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             color: LiquidGlassTheme.primaryColor,
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
+
+          // 添加图片按钮 - 直接打开相册
+          _ToolbarSquareAction(
+            icon: Icons.add_photo_alternate_rounded,
+            onTap: _pickImageFromGallery,
+            color: LiquidGlassTheme.secondaryColor,
+          ),
+
+          const SizedBox(width: 8),
 
           // 字体
           Expanded(
@@ -504,32 +535,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
 
-          // 打印按钮 - 强化对比度
-          Material(
+          // 打印按钮 - 只显示图标的方形按钮
+          _ToolbarSquareAction(
+            icon: Icons.print_rounded,
+            onTap: _handlePrint,
             color: LiquidGlassTheme.primaryColor,
-            borderRadius: BorderRadius.circular(16),
-            elevation: 8,
-            shadowColor: LiquidGlassTheme.primaryColor.withOpacity(0.4),
-            child: InkWell(
-              onTap: _handlePrint,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.print_rounded, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      '打印',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
         ],
       ),

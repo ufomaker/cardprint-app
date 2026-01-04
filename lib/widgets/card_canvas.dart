@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/card_provider.dart';
 import '../theme/liquid_glass_theme.dart';
+import 'draggable_image.dart';
 import 'draggable_text.dart';
 
 /// 卡片画布组件
@@ -13,10 +14,14 @@ class CardCanvas extends StatelessWidget {
   /// 是否为打印模式（移除阴影和圆角，确保内容填满纸张）
   final bool forPrint;
 
+  /// 编辑回调（点击文字编辑按钮时触发）
+  final VoidCallback? onEdit;
+
   const CardCanvas({
     super.key,
     this.captureKey,
     this.forPrint = false,
+    this.onEdit,
   });
 
   @override
@@ -39,11 +44,21 @@ class CardCanvas extends StatelessWidget {
               ),
               
               // 内容层
-              if (content.isNotEmpty)
+              if (content.isNotEmpty || provider.images.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Stack(
                     children: [
+                      // 图片层（在文字下方）
+                      ...provider.images.map((img) => Positioned.fill(
+                        child: Center(
+                          child: DraggableImage(
+                            imageItem: img,
+                            forPrint: true,
+                          ),
+                        ),
+                      )),
+
                       // Header - 初始左上角
                       if (content.header.isNotEmpty)
                         Positioned.fill(
@@ -100,7 +115,9 @@ class CardCanvas extends StatelessWidget {
         ),
       );
     }
-
+    
+    // ...
+    
     // 正常预览模式
     return RepaintBoundary(
       key: captureKey,
@@ -127,11 +144,21 @@ class CardCanvas extends StatelessWidget {
                     ),
                 
                 // 内容层：使用 Positioned.fill 确保文字块在整个画布范围内接收手势
-                if (content.isNotEmpty)
+                if (content.isNotEmpty || provider.images.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Stack(
                       children: [
+                        // 图片层（在文字下方）
+                        ...provider.images.map((img) => Positioned.fill(
+                          child: Center(
+                            child: DraggableImage(
+                              imageItem: img,
+                              forPrint: false,
+                            ),
+                          ),
+                        )),
+
                         // Header - 初始左上角
                         if (content.header.isNotEmpty)
                           Positioned.fill(
@@ -143,6 +170,7 @@ class CardCanvas extends StatelessWidget {
                                 alignment: Alignment.topLeft,
                                 blockType: TextBlockType.header,
                                 padding: EdgeInsets.zero,
+                                onEdit: onEdit,
                               ),
                             ),
                           ),
@@ -157,6 +185,7 @@ class CardCanvas extends StatelessWidget {
                                 alignment: Alignment.center,
                                 blockType: TextBlockType.body,
                                 padding: EdgeInsets.zero,
+                                onEdit: onEdit,
                               ),
                             ),
                           ),
@@ -172,6 +201,7 @@ class CardCanvas extends StatelessWidget {
                                 alignment: Alignment.bottomRight,
                                 blockType: TextBlockType.footer,
                                 padding: EdgeInsets.zero,
+                                onEdit: onEdit,
                               ),
                             ),
                           ),

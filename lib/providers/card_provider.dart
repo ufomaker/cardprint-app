@@ -1,6 +1,8 @@
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import '../models/card_content.dart';
+import '../models/canvas_item.dart';
 import '../services/deepseek_service.dart';
 import '../services/font_service.dart';
 import '../services/storage_service.dart';
@@ -14,6 +16,10 @@ class CardProvider extends ChangeNotifier {
   /// 当前卡片内容
   CardContent _content = CardContent();
   CardContent get content => _content;
+
+  /// 画布上的图片列表
+  final List<ImageItem> _images = [];
+  List<ImageItem> get images => List.unmodifiable(_images);
 
   /// 操作历史栈（用于撤回）
   final List<CardContent> _historyStack = [];
@@ -296,6 +302,36 @@ class CardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 更新 header 尺寸
+  void updateHeaderSize({double? width, double? height}) {
+    if (!_isFreeMode) return;
+    _content = _content.copyWith(
+      headerWidth: width != null ? width.clamp(50.0, 1000.0) : null,
+      headerHeight: height != null ? height.clamp(20.0, 1000.0) : null,
+    );
+    notifyListeners();
+  }
+
+  /// 更新 body 尺寸
+  void updateBodySize({double? width, double? height}) {
+    if (!_isFreeMode) return;
+    _content = _content.copyWith(
+      bodyWidth: width != null ? width.clamp(50.0, 1000.0) : null,
+      bodyHeight: height != null ? height.clamp(20.0, 1000.0) : null,
+    );
+    notifyListeners();
+  }
+
+  /// 更新 footer 尺寸
+  void updateFooterSize({double? width, double? height}) {
+    if (!_isFreeMode) return;
+    _content = _content.copyWith(
+      footerWidth: width != null ? width.clamp(50.0, 1000.0) : null,
+      footerHeight: height != null ? height.clamp(20.0, 1000.0) : null,
+    );
+    notifyListeners();
+  }
+
   /// 切换字体（并保存用户选择）
   void setFont(String fontFamily) async {
     _fontFamily = fontFamily;
@@ -419,6 +455,12 @@ class CardProvider extends ChangeNotifier {
       headerRotation: 0,
       bodyRotation: 0,
       footerRotation: 0,
+      headerWidth: null,
+      headerHeight: null,
+      bodyWidth: null,
+      bodyHeight: null,
+      footerWidth: null,
+      footerHeight: null,
     );
     notifyListeners();
   }
@@ -426,6 +468,66 @@ class CardProvider extends ChangeNotifier {
   /// 清空内容
   void clear() {
     _content = CardContent();
+    _images.clear();
+    notifyListeners();
+  }
+
+  // ==================== 图片管理方法 ====================
+
+  /// 添加图片到画布
+  void addImage(Uint8List imageBytes, double width, double height) {
+    final id = 'img_${DateTime.now().millisecondsSinceEpoch}_${_images.length}';
+    final newImage = ImageItem(
+      id: id,
+      imageBytes: imageBytes,
+      originalWidth: width,
+      originalHeight: height,
+      offsetX: 0,
+      offsetY: 0,
+      scale: 1.0,
+      rotation: 0,
+    );
+    _images.add(newImage);
+    notifyListeners();
+  }
+
+  /// 删除图片
+  void removeImage(String id) {
+    _images.removeWhere((img) => img.id == id);
+    notifyListeners();
+  }
+
+  /// 更新图片位置偏移
+  void updateImageOffset(String id, double dx, double dy) {
+    final index = _images.indexWhere((img) => img.id == id);
+    if (index == -1) return;
+    
+    final img = _images[index];
+    _images[index] = img.copyWith(
+      offsetX: (_isFreeMode ? img.offsetX + dx : img.offsetX),
+      offsetY: img.offsetY + dy,
+    );
+    notifyListeners();
+  }
+
+  /// 更新图片缩放和旋转
+  void updateImageTransform(String id, {double? scaleDelta, double? rotationDelta}) {
+    if (!_isFreeMode) return;
+    
+    final index = _images.indexWhere((img) => img.id == id);
+    if (index == -1) return;
+    
+    final img = _images[index];
+    _images[index] = img.copyWith(
+      scale: scaleDelta != null ? (img.scale * scaleDelta).clamp(0.3, 4.0) : null,
+      rotation: rotationDelta != null ? img.rotation + rotationDelta : null,
+    );
+    notifyListeners();
+  }
+
+  /// 清空所有图片
+  void clearImages() {
+    _images.clear();
     notifyListeners();
   }
 }
