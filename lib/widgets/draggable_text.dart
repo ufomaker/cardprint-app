@@ -9,6 +9,7 @@ import '../theme/liquid_glass_theme.dart';
 
 /// 文字块类型枚举
 enum TextBlockType { header, body, footer }
+enum EdgeType { top, bottom, left, right }
 
 /// 可拖拽文字块组件
 /// 支持 Y 轴锁定拖拽和自由模式下的双指缩放旋转
@@ -41,6 +42,7 @@ class _DraggableTextState extends State<DraggableText> with SingleTickerProvider
   // ... (keep existing state variables)
   bool _isDragging = false;
   bool _isSelected = false;
+  bool _isResizing = false;
   double _lastScale = 1.0;
   double _lastRotation = 0.0;
   late AnimationController _animationController;
@@ -102,40 +104,62 @@ class _DraggableTextState extends State<DraggableText> with SingleTickerProvider
     }
   }
 
-  // Simplified _handleResize for strictly BR resizing
-  void _handleResize(CardProvider provider, Offset delta) {
+  // Handles resizing from 4 edges, calculating center shift dynamically
+  void _handleEdgeResize(CardProvider provider, Offset globalDelta, {bool isLeft = false, bool isRight = false, bool isTop = false, bool isBottom = false}) {
+    final rotation = _getRotation(provider);
+    final cosR = cos(rotation);
+    final sinR = sin(rotation);
+    
+    // Compute raw axis deltas based on screen touches, unrotated
+    final localDx = globalDelta.dx * cosR + globalDelta.dy * sinR;
+    final localDy = -globalDelta.dx * sinR + globalDelta.dy * cosR;
+
+    double dw = 0;
+    double dh = 0;
+
+    if (isRight) dw = localDx;
+    else if (isLeft) dw = -localDx;
+    else if (isBottom) dh = localDy;
+    else if (isTop) dh = -localDy;
+
     final currentW = _getWidth(provider);
     final currentH = _getHeight(provider);
     
     if (currentW == null || currentH == null) {
-      final box = _containerKey.currentContext?.findRenderObject() as RenderBox?;
-      if (box != null) {
-        final size = box.size;
-        _updateSize(provider, width: currentW ?? size.width, height: currentH ?? size.height);
-      }
+      _initSizeIfNeeded(provider);
       return;
     }
 
-    // Always adding delta for BR resize
-    final targetW = (currentW + delta.dx).clamp(50.0, 1000.0);
-    final targetH = (currentH + delta.dy).clamp(20.0, 1000.0);
+    final targetW = (currentW + dw).clamp(50.0, 10000.0);
+    final targetH = (currentH + dh).clamp(30.0, 10000.0);
 
     final effectiveDw = targetW - currentW;
     final effectiveDh = targetH - currentH;
 
+    if (effectiveDw == 0 && effectiveDh == 0) return;
+
+    // Anchor resize logic - we move the center relative to the alignment origin
+    final Alignment alignment = widget.alignment ?? Alignment.center;
+    final ax = alignment.x;
+    final ay = alignment.y;
+
+    double shiftX = 0;
+    double shiftY = 0;
+
+    if (isRight) shiftX = effectiveDw * (ax + 1) / 2;
+    else if (isLeft) shiftX = -effectiveDw * (1 - ax) / 2;
+    else if (isBottom) shiftY = effectiveDh * (ay + 1) / 2;
+    else if (isTop) shiftY = -effectiveDh * (1 - ay) / 2;
+
     _updateSize(provider, width: targetW, height: targetH);
 
-    // Shift center by half delta to mimic corner drag
-    // Rotated shift
-    final shiftX = effectiveDw / 2;
-    final shiftY = effectiveDh / 2;
-
-    final rotation = _getRotation(provider);
-    final cosR = cos(rotation);
-    final sinR = sin(rotation);
-
+    // Apply rotation back to the translation vector
     final dxGlobal = shiftX * cosR - shiftY * sinR;
     final dyGlobal = shiftX * sinR + shiftY * cosR;
+
+    print("EdgeResize -> dx:\${globalDelta.dx.toStringAsFixed(1)}, dy:\${globalDelta.dy.toStringAsFixed(1)} | " 
+          "growW:\${effectiveDw.toStringAsFixed(1)}, growH:\${effectiveDh.toStringAsFixed(1)} | "
+          "shiftGlobal: \${dxGlobal.toStringAsFixed(1)}, \${dyGlobal.toStringAsFixed(1)} | edge: r\$isRight l\$isLeft b\$isBottom t\$isTop");
 
     _updateOffset(provider, dxGlobal, dyGlobal);
   }
@@ -236,7 +260,7 @@ class _DraggableTextState extends State<DraggableText> with SingleTickerProvider
     final width = _getWidth(provider);
     final height = _getHeight(provider);
 
-    const double handleRadius = 24.0;
+    const double handleRadius = 60.0;
 
     return ScaleTransition(
       scale: _scaleAnimation,
@@ -267,13 +291,14 @@ class _DraggableTextState extends State<DraggableText> with SingleTickerProvider
                   _lastRotation = 0.0;
                 },
                 onScaleUpdate: (details) {
-                  if (isFreeMode) {
-                    _updateOffset(provider, details.focalPointDelta.dx, details.focalPointDelta.dy);
-                  } else {
-                    _updateOffset(provider, 0, details.focalPointDelta.dy);
-                  }
-
-                  if (isFreeMode && details.pointerCount >= 2) {
+                  if (_isResizing) return; // Don't translate while edge-resizing
+                  if (details.pointerCount == 1) {
+                    if (isFreeMode) {
+                      _updateOffset(provider, details.focalPointDelta.dx, details.focalPointDelta.dy);
+                    } else {
+                      _updateOffset(provider, 0, details.focalPointDelta.dy);
+                    }
+                  } else if (isFreeMode && details.pointerCount >= 2) {
                     if (details.scale != 1.0) {
                       final scaleDelta = details.scale / _lastScale;
                       _updateTransform(provider, scale: scaleDelta);
@@ -291,9 +316,11 @@ class _DraggableTextState extends State<DraggableText> with SingleTickerProvider
                   _animationController.reverse();
                   HapticFeedback.selectionClick();
                 },
-                child: AnimatedContainer(
+                child: Container(
                   key: _containerKey,
-                  duration: const Duration(milliseconds: 100), 
+                  constraints: width == null 
+                      ? BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7) 
+                      : null,
                   width: width,
                   height: height,
                   padding: widget.padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -313,37 +340,74 @@ class _DraggableTextState extends State<DraggableText> with SingleTickerProvider
                       width: (_isDragging || _isSelected) ? 2.0 : 1.0,
                     ),
                   ),
-                  child: Text(
-                    widget.text,
-                    textAlign: widget.textAlign,
-                    style: _getTextStyle(provider),
+                  child: ClipRect(
+                    clipBehavior: Clip.hardEdge,
+                    child: Align(
+                      alignment: widget.textAlign == TextAlign.center 
+                          ? Alignment.topCenter 
+                          : (widget.textAlign == TextAlign.right ? Alignment.topRight : Alignment.topLeft),
+                      child: Text(
+                        widget.text,
+                        textAlign: widget.textAlign,
+                        style: _getTextStyle(provider),
+                        softWrap: true,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
 
             if (_isSelected && !widget.forPrint && isFreeMode) ...[
-               // Top-Left: Delete
-              _buildControlButton(
-                alignment: Alignment.topLeft,
-                icon: Icons.close_rounded,
-                color: Colors.red.shade400,
-                onTap: () => _handleDelete(provider),
-              ),
-              
-              // Top-Right: Edit
-              _buildControlButton(
-                alignment: Alignment.topRight,
-                icon: Icons.edit_rounded,
-                color: LiquidGlassTheme.secondaryColor,
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  widget.onEdit?.call();
-                },
+              // Floating Toolbar Above Text Box
+              Positioned(
+                top: 10,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildTonalButton(
+                          icon: Icons.edit_rounded,
+                          color: LiquidGlassTheme.secondaryColor,
+                          onTap: () {
+                            HapticFeedback.mediumImpact();
+                            widget.onEdit?.call();
+                          },
+                        ),
+                        Container(width: 1, height: 16, color: Colors.grey.withOpacity(0.3), margin: const EdgeInsets.symmetric(horizontal: 4)),
+                        _buildAlignmentRow(provider),
+                        Container(width: 1, height: 16, color: Colors.grey.withOpacity(0.3), margin: const EdgeInsets.symmetric(horizontal: 4)),
+                        _buildTonalButton(
+                          icon: Icons.delete_outline_rounded,
+                          color: Colors.red.shade400,
+                          onTap: () => _handleDelete(provider),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
 
-              // Bottom-Right: Resize
-              _buildResizeHandle(provider),
+              // 4 Direction Resize Handles
+              _buildEdgeDragHandle(provider, EdgeType.top),
+              _buildEdgeDragHandle(provider, EdgeType.bottom),
+              _buildEdgeDragHandle(provider, EdgeType.left),
+              _buildEdgeDragHandle(provider, EdgeType.right),
             ]
           ],
         ),
@@ -351,92 +415,211 @@ class _DraggableTextState extends State<DraggableText> with SingleTickerProvider
     );
   }
 
-  // Generic Control Button Builder (for Delete and Edit)
-  Widget _buildControlButton({
-    required Alignment alignment,
+  // Row for alignment controls inside floating toolbar
+  Widget _buildAlignmentRow(CardProvider provider) {
+    final currentAlign = _getCurrentAlign(provider);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildAlignButton(
+          provider: provider,
+          align: TextAlign.left,
+          icon: Icons.format_align_left_rounded,
+          isActive: currentAlign == TextAlign.left,
+        ),
+        _buildAlignButton(
+          provider: provider,
+          align: TextAlign.center,
+          icon: Icons.format_align_center_rounded,
+          isActive: currentAlign == TextAlign.center,
+        ),
+        _buildAlignButton(
+          provider: provider,
+          align: TextAlign.right,
+          icon: Icons.format_align_right_rounded,
+          isActive: currentAlign == TextAlign.right,
+        ),
+      ],
+    );
+  }
+
+  // Tonal Button design for floating toolbar
+  Widget _buildTonalButton({
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
   }) {
-    final isLeft = alignment.x < 0;
-    final isTop = alignment.y < 0;
-    
-    return Positioned(
-      top: isTop ? 0 : null,
-      bottom: !isTop ? 0 : null,
-      left: isLeft ? 0 : null,
-      right: !isLeft ? 0 : null,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () {
-          HapticFeedback.mediumImpact();
-          onTap();
-        },
-        child: Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          color: Colors.transparent,
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 14,
-            ),
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: color,
         ),
       ),
     );
   }
 
-  // Simplified BR Resize Handle
-  Widget _buildResizeHandle(CardProvider provider) {
-    return Positioned(
-      bottom: 0,
-      right: 0,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent, 
-        onPanStart: (details) => _initSizeIfNeeded(provider),
-        onPanUpdate: (details) => _handleResize(provider, details.delta),
+  // 获取当前文字块的对齐方式
+  TextAlign _getCurrentAlign(CardProvider provider) {
+    switch (widget.blockType) {
+      case TextBlockType.header: return provider.headerAlign;
+      case TextBlockType.body: return provider.bodyAlign;
+      case TextBlockType.footer: return provider.footerAlign;
+    }
+  }
+
+  // 设置当前文字块的对齐方式
+  void _setAlign(CardProvider provider, TextAlign align) {
+    switch (widget.blockType) {
+      case TextBlockType.header: provider.setHeaderAlign(align); break;
+      case TextBlockType.body: provider.setBodyAlign(align); break;
+      case TextBlockType.footer: provider.setFooterAlign(align); break;
+    }
+  }
+
+  // 单个对齐按钮
+  Widget _buildAlignButton({
+    required CardProvider provider,
+    required TextAlign align,
+    required IconData icon,
+    required bool isActive,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        _setAlign(provider, align);
+      },
+      child: Container(
+        width: 32,
+        height: 32,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: isActive ? LiquidGlassTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: isActive ? Colors.white : LiquidGlassTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  // 4 Edge Resize Handle Builder
+  Widget _buildEdgeDragHandle(CardProvider provider, EdgeType edge) {
+    const double hitSize = 24.0;
+    const double borderInset = 60.0; // The padding around the AnimatedContainer
+    const double anchor = borderInset - hitSize / 2; // 48.0
+
+    double? top, bottom, left, right;
+    double? width, height;
+
+    switch (edge) {
+      case EdgeType.top:
+        top = anchor;
+        left = borderInset;
+        right = borderInset;
+        height = hitSize;
+        break;
+      case EdgeType.bottom:
+        bottom = anchor;
+        left = borderInset;
+        right = borderInset;
+        height = hitSize;
+        break;
+      case EdgeType.left:
+        left = anchor;
+        top = borderInset;
+        bottom = borderInset;
+        width = hitSize;
+        break;
+      case EdgeType.right:
+        right = anchor;
+        top = borderInset;
+        bottom = borderInset;
+        width = hitSize;
+        break;
+    }
+
+    Widget visualHandle;
+    if (edge == EdgeType.top || edge == EdgeType.bottom) {
+      visualHandle = Center(
         child: Container(
-          width: 48, 
-          height: 48,
-          alignment: Alignment.center,
-          color: Colors.transparent, 
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: LiquidGlassTheme.primaryColor, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.crop_free_rounded, 
-              size: 14,
-              color: LiquidGlassTheme.primaryColor,
-            ),
+          width: 32, height: 6,
+          decoration: BoxDecoration(
+            color: LiquidGlassTheme.primaryColor,
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
+        ),
+      );
+    } else {
+      visualHandle = Center(
+        child: Container(
+          width: 6, height: 32,
+          decoration: BoxDecoration(
+            color: LiquidGlassTheme.primaryColor,
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Positioned(
+      top: top,
+      bottom: bottom,
+      left: left,
+      right: right,
+      width: width,
+      height: height,
+      child: MouseRegion(
+        cursor: (edge == EdgeType.left || edge == EdgeType.right) 
+            ? SystemMouseCursors.resizeLeftRight 
+            : SystemMouseCursors.resizeUpDown,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (details) {
+            setState(() => _isResizing = true);
+            _initSizeIfNeeded(provider);
+            provider.saveToHistory();
+          },
+          onPanUpdate: (details) {
+            _handleEdgeResize(
+              provider, 
+              details.delta, 
+              isLeft: edge == EdgeType.left,
+              isRight: edge == EdgeType.right,
+              isTop: edge == EdgeType.top,
+              isBottom: edge == EdgeType.bottom,
+            );
+          },
+          onPanEnd: (details) {
+            setState(() => _isResizing = false);
+          },
+          child: visualHandle,
         ),
       ),
     );

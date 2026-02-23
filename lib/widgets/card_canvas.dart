@@ -66,7 +66,7 @@ class CardCanvas extends StatelessWidget {
                             alignment: Alignment.topLeft,
                             child: DraggableText(
                               text: content.header,
-                              textAlign: TextAlign.left,
+                              textAlign: provider.headerAlign,
                               alignment: Alignment.topLeft,
                               blockType: TextBlockType.header,
                               padding: EdgeInsets.zero,
@@ -81,7 +81,7 @@ class CardCanvas extends StatelessWidget {
                           child: Center(
                             child: DraggableText(
                               text: content.body,
-                              textAlign: TextAlign.center,
+                              textAlign: provider.bodyAlign,
                               alignment: Alignment.center,
                               blockType: TextBlockType.body,
                               padding: EdgeInsets.zero,
@@ -97,7 +97,7 @@ class CardCanvas extends StatelessWidget {
                             alignment: Alignment.bottomRight,
                             child: DraggableText(
                               text: content.footer,
-                              textAlign: TextAlign.right,
+                              textAlign: provider.footerAlign,
                               alignment: Alignment.bottomRight,
                               blockType: TextBlockType.footer,
                               padding: EdgeInsets.zero,
@@ -162,11 +162,13 @@ class CardCanvas extends StatelessWidget {
                         // Header - 初始左上角
                         if (content.header.isNotEmpty)
                           Positioned.fill(
-                            child: Align(
+                            child: OverflowBox(
+                              maxWidth: double.infinity,
+                              maxHeight: double.infinity,
                               alignment: Alignment.topLeft,
                               child: DraggableText(
                                 text: content.header,
-                                textAlign: TextAlign.left,
+                                textAlign: provider.headerAlign,
                                 alignment: Alignment.topLeft,
                                 blockType: TextBlockType.header,
                                 padding: EdgeInsets.zero,
@@ -178,10 +180,13 @@ class CardCanvas extends StatelessWidget {
                         // Body - 初始居中
                         if (content.body.isNotEmpty)
                           Positioned.fill(
-                            child: Center(
+                            child: OverflowBox(
+                              maxWidth: double.infinity,
+                              maxHeight: double.infinity,
+                              alignment: Alignment.center,
                               child: DraggableText(
                                 text: content.body,
-                                textAlign: TextAlign.center,
+                                textAlign: provider.bodyAlign,
                                 alignment: Alignment.center,
                                 blockType: TextBlockType.body,
                                 padding: EdgeInsets.zero,
@@ -193,11 +198,13 @@ class CardCanvas extends StatelessWidget {
                         // Footer - 初始右下角
                         if (content.footer.isNotEmpty)
                           Positioned.fill(
-                            child: Align(
+                            child: OverflowBox(
+                              maxWidth: double.infinity,
+                              maxHeight: double.infinity,
                               alignment: Alignment.bottomRight,
                               child: DraggableText(
                                 text: content.footer,
-                                textAlign: TextAlign.right,
+                                textAlign: provider.footerAlign,
                                 alignment: Alignment.bottomRight,
                                 blockType: TextBlockType.footer,
                                 padding: EdgeInsets.zero,
@@ -252,30 +259,7 @@ class CardCanvas extends StatelessWidget {
                     ),
                   ),
 
-                // 自由模式提示
-                if (provider.isFreeMode)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: LiquidGlassTheme.primaryColor.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.open_with, color: Colors.white, size: 14),
-                          SizedBox(width: 4),
-                          Text(
-                            '自由模式',
-                            style: TextStyle(color: Colors.white, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // 自由模式已默认启用，无需角标提示
                 ],
               ),
             ),

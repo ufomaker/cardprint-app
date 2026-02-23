@@ -149,6 +149,21 @@ class CardProvider extends ChangeNotifier {
         _paperSize = Size(_customWidth, _customHeight);
         debugPrint('使用自定义纸张大小: $_paperSize');
       }
+      
+      // 加载文字对齐偏好
+      final savedHeaderAlign = await StorageService.getInt('header_align');
+      final savedBodyAlign = await StorageService.getInt('body_align');
+      final savedFooterAlign = await StorageService.getInt('footer_align');
+      
+      if (savedHeaderAlign != null && savedHeaderAlign >= 0 && savedHeaderAlign < TextAlign.values.length) {
+        _headerAlign = TextAlign.values[savedHeaderAlign];
+      }
+      if (savedBodyAlign != null && savedBodyAlign >= 0 && savedBodyAlign < TextAlign.values.length) {
+        _bodyAlign = TextAlign.values[savedBodyAlign];
+      }
+      if (savedFooterAlign != null && savedFooterAlign >= 0 && savedFooterAlign < TextAlign.values.length) {
+        _footerAlign = TextAlign.values[savedFooterAlign];
+      }
     } catch (e) {
       debugPrint('加载设置失败: $e');
     }
@@ -176,9 +191,18 @@ class CardProvider extends ChangeNotifier {
   double _fontSize = 24;
   double get fontSize => _fontSize;
 
-  /// 是否为自由模式（默认为锁定模式，仅 Y 轴可拖拽）
-  bool _isFreeMode = false;
+  /// 是否为自由模式（默认为自由模式，支持 X/Y 轴拖拽和缩放旋转）
+  bool _isFreeMode = true;
   bool get isFreeMode => _isFreeMode;
+
+  /// 文字对齐偏好（用于记住用户习惯）
+  TextAlign _headerAlign = TextAlign.left;
+  TextAlign _bodyAlign = TextAlign.center;
+  TextAlign _footerAlign = TextAlign.right;
+
+  TextAlign get headerAlign => _headerAlign;
+  TextAlign get bodyAlign => _bodyAlign;
+  TextAlign get footerAlign => _footerAlign;
 
   /// 纸张尺寸（毫米）
   Size _paperSize = const Size(148, 105); // A6 风景尺寸
@@ -362,6 +386,42 @@ class CardProvider extends ChangeNotifier {
   void toggleMode() {
     _isFreeMode = !_isFreeMode;
     notifyListeners();
+  }
+
+  /// 设置 header 对齐方式（并保存用户选择）
+  void setHeaderAlign(TextAlign align) async {
+    _headerAlign = align;
+    notifyListeners();
+    
+    try {
+      await StorageService.setInt('header_align', align.index);
+    } catch (e) {
+      debugPrint('保存对齐设置失败: $e');
+    }
+  }
+
+  /// 设置 body 对齐方式（并保存用户选择）
+  void setBodyAlign(TextAlign align) async {
+    _bodyAlign = align;
+    notifyListeners();
+    
+    try {
+      await StorageService.setInt('body_align', align.index);
+    } catch (e) {
+      debugPrint('保存对齐设置失败: $e');
+    }
+  }
+
+  /// 设置 footer 对齐方式（并保存用户选择）
+  void setFooterAlign(TextAlign align) async {
+    _footerAlign = align;
+    notifyListeners();
+    
+    try {
+      await StorageService.setInt('footer_align', align.index);
+    } catch (e) {
+      debugPrint('保存对齐设置失败: $e');
+    }
   }
 
   /// 设置纸张尺寸（并保存用户选择）
